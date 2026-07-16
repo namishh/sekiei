@@ -1,6 +1,7 @@
 const std = @import("std");
+const OpenGraph = @import("opengraph.zig").OpenGraph;
 
-const c = @cImport({
+pub const c = @cImport({
     @cInclude("MagickWand/MagickWand.h");
 });
 
@@ -10,19 +11,13 @@ pub fn main() !void {
         return error.MagicWandCreationFailed;
     }
     defer _ = c.DestroyMagickWand(wand);
-    const svg =
-        \\<svg width="300" height="170" xmlns="http://www.w3.org/2000/svg">
-        \\  <rect width="150" height="150" x="10" y="10" style="fill:blue;stroke:pink;stroke-width:5;fill-opacity:0.5;stroke-opacity:0.9" />
-        \\</svg>
-    ;
+    var arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
+    defer arena.deinit();
 
-    if (c.MagickReadImageBlob(wand, svg, svg.len) == c.MagickFalse) {
-        return error.FailedToRead;
-    }
+    const allocator = arena.allocator();
+    var o = try OpenGraph.init(allocator);
+    defer o.deinit();
 
-    if (c.MagickWriteImage(wand, "output.png") == c.MagickFalse) {
-        return error.FailedExport;
-    }
-
-    std.debug.print("Wrote output.png\n", .{});
+    std.debug.print("{s}", .{o.getString()});
+    try o.save_as(wand.?, "out.png");
 }
