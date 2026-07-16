@@ -1,0 +1,11 @@
+*
+
+!.gitignore
+!build.zig
+!build.zig.zon
+
+
+!src/
+!src/*.zig
+
+!README
