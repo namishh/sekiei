@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.linkSystemLibrary("MagickWand");
+    exe.linkSystemLibrary("librsvg-2");
     exe.linkLibC();
 
     b.installArtifact(exe);
