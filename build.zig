@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.linkSystemLibrary("librsvg-2");
+    exe.linkSystemLibrary("cairo");
     exe.linkLibC();
 
     b.installArtifact(exe);

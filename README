@@ -1,5 +1,4 @@
 attempt two at a static site generator.
 
 requires
-    - librsvg
     - cairo
