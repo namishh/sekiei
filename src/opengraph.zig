@@ -12,6 +12,22 @@ const BackgroundDirection = enum { LeftToRight, RightToLeft, TopToBottom, Bottom
 const MaxRadius = 32;
 var blur_buffer: [WIDTH * HEIGHT]u32 = undefined;
 
+pub fn hex_string_to_rgb(hex: []const u8) [4]f64 {
+    const cleaned = if (hex[0] == '#') hex[1..] else hex;
+
+    const r_int = std.fmt.parseInt(u8, cleaned[0..2], 16) catch 0;
+    const g_int = std.fmt.parseInt(u8, cleaned[2..4], 16) catch 0;
+    const b_int = std.fmt.parseInt(u8, cleaned[4..6], 16) catch 0;
+    const a_int = std.fmt.parseInt(u8, cleaned[6..8], 16) catch 255;
+
+    return .{
+        @as(f64, @floatFromInt(r_int)) / 255.0,
+        @as(f64, @floatFromInt(g_int)) / 255.0,
+        @as(f64, @floatFromInt(b_int)) / 255.0,
+        @as(f64, @floatFromInt(a_int)) / 255.0,
+    };
+}
+
 pub const OpenGraph = struct {
     const Self = @This();
 
@@ -41,7 +57,7 @@ pub const OpenGraph = struct {
         c.cairo_surface_destroy(self.surface);
     }
 
-    pub fn bg_linear_gradient(self: *const Self, color_to: [3]f64, color_from: [3]f64, dir: BackgroundDirection) *const Self {
+    pub fn bg_linear_gradient(self: *const Self, c_t: []const u8, c_f: []const u8, dir: BackgroundDirection) *const Self {
         const floatHeight = @as(f64, @floatFromInt(HEIGHT));
         const floatWidth = @as(f64, @floatFromInt(WIDTH));
         const pattern: *c.cairo_pattern_t = switch (dir) {
@@ -53,11 +69,36 @@ pub const OpenGraph = struct {
 
         defer c.cairo_pattern_destroy(pattern);
 
-        c.cairo_pattern_add_color_stop_rgba(pattern, 0.0, color_to[0], color_to[1], color_to[2], 1.0);
-        c.cairo_pattern_add_color_stop_rgba(pattern, 1.0, color_from[0], color_from[1], color_from[2], 1.0);
+        const color_to = hex_string_to_rgb(c_t);
+        const color_from = hex_string_to_rgb(c_f);
+
+        c.cairo_pattern_add_color_stop_rgba(pattern, 0.0, color_to[0], color_to[1], color_to[2], color_to[3]);
+        c.cairo_pattern_add_color_stop_rgba(pattern, 1.0, color_from[0], color_from[1], color_from[2], color_from[3]);
         c.cairo_set_source(self.cr, pattern);
         c.cairo_rectangle(self.cr, 0, 0, WIDTH, HEIGHT);
         c.cairo_fill(self.cr);
+        return self;
+    }
+
+    pub fn grid(self: *const Self, grid_size: f64, line_width: f64, color: []const u8) *const Self {
+        const co = hex_string_to_rgb(color);
+        c.cairo_set_source_rgba(self.cr, co[0], co[1], co[2], co[3]);
+        c.cairo_set_line_width(self.cr, line_width);
+
+        var x: f64 = 0;
+        while (x <= WIDTH) : (x += grid_size) {
+            c.cairo_move_to(self.cr, x, 0);
+            c.cairo_line_to(self.cr, x, HEIGHT);
+        }
+
+        var y: f64 = 0;
+        while (y <= HEIGHT) : (y += grid_size) {
+            c.cairo_move_to(self.cr, 0, y);
+            c.cairo_line_to(self.cr, WIDTH, y);
+        }
+
+        c.cairo_stroke(self.cr);
+
         return self;
     }
 

@@ -12,8 +12,8 @@ pub fn main() !void {
 
     const simple = try OpenGraph
         .init()
-        .bg_linear_gradient(.{ 1.0, 0.0, 0.0 }, .{ 0.0, 1.0, 1.0 }, .LeftToRight)
+        .bg_linear_gradient("#0f0f0fff", "#222222ff", .LeftToRight)
+        .grid(40.0, 0.5, "#323232ff")
         .save("simple.png");
-
     defer simple.deinit();
 }
