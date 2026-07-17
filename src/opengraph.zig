@@ -2,6 +2,8 @@ const std = @import("std");
 
 const c = @cImport({
     @cInclude("cairo/cairo.h");
+    @cInclude("pango/pangocairo.h");
+    @cInclude("glib-object.h");
 });
 
 const WIDTH = 1200;
@@ -102,7 +104,16 @@ pub const OpenGraph = struct {
         return self;
     }
 
-    pub fn overlay(self: *const Self, rgba: [4]f64) *const Self {
+    pub fn overlay(self: *const Self, color: []const u8) *const Self {
+        const rgba = hex_string_to_rgb(color);
+        c.cairo_set_source_rgba(self.cr, rgba[0], rgba[1], rgba[2], rgba[3]);
+        c.cairo_rectangle(self.cr, 0, 0, WIDTH, HEIGHT);
+        c.cairo_fill(self.cr);
+        return self;
+    }
+
+    pub fn bg_color(self: *const Self, color: []const u8) *const Self {
+        const rgba = hex_string_to_rgb(color);
         c.cairo_set_source_rgba(self.cr, rgba[0], rgba[1], rgba[2], rgba[3]);
         c.cairo_rectangle(self.cr, 0, 0, WIDTH, HEIGHT);
         c.cairo_fill(self.cr);
@@ -210,6 +221,20 @@ pub const OpenGraph = struct {
         }
 
         c.cairo_surface_mark_dirty(self.surface);
+        return self;
+    }
+
+    pub fn title(self: *const Self, text: [:0]const u8) *const Self {
+        const layout = c.pango_cairo_create_layout(self.cr);
+        c.pango_layout_set_text(layout, text.ptr, -1);
+
+        c.pango_layout_set_width(layout, 500 * 1024);
+        c.pango_layout_set_wrap(layout, 0);
+
+        c.cairo_move_to(self.cr, 10, 20);
+        c.pango_cairo_show_layout(self.cr, layout);
+
+        c.g_object_unref(layout);
         return self;
     }
 

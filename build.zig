@@ -12,8 +12,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.linkSystemLibrary("cairo");
-    exe.linkSystemLibrary("pango");
+    exe.linkSystemLibrary("pangocairo");
     exe.linkLibC();
 
     b.installArtifact(exe);

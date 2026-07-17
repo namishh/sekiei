@@ -6,7 +6,8 @@ pub fn main() !void {
         .init()
         .bg_image("biscuit.png")
         .blur(10)
-        .overlay(.{ 0.0, 0.0, 0.0, 0.5 })
+        .overlay("#000000aa")
+        .title("This is some very long text i am writing isnt this fun.")
         .save("out.png");
     defer img.deinit();
 
