@@ -35,7 +35,10 @@ pub const OpenGraph = struct {
         return self.svg_buf.string();
     }
 
-    pub fn background_linear_gradient(self: *Self, direction: BackgroundDirection) !void {
+    pub fn background_linear_gradient(self: *Self, direction: BackgroundDirection, c1: []const u8, c2: []const u8) !void {
+        if (self.bg_added) {
+            return error.BgAlreadyAdded;
+        }
         self.bg_added = true;
 
         const xy: [4]u32 = switch (direction) {
@@ -49,10 +52,26 @@ pub const OpenGraph = struct {
         const s = try std.fmt.bufPrint(&buf, "<linearGradient id=\"background\" x1=\"{d}%\" y1=\"{d}%\" x2=\"{d}%\" y2=\"{d}%\">", .{ xy[0], xy[1], xy[2], xy[3] });
         try self.defs_buf.write(s);
 
-        try self.defs_buf.write("<stop offset=\"0%\" stop-color=\"#ff00a0\" />");
-        try self.defs_buf.write("<stop offset=\"100%\" stop-color=\"#00b1ff\" />");
+        var color_buf: [256]u8 = undefined;
+        const colostr =
+            \\ <stop offset="0%" stop-color="{s}" />
+            \\ <stop offset="70%" stop-color="{s}" />
+        ;
+        const co = try std.fmt.bufPrint(&color_buf, colostr, .{ c1, c2 });
+        try self.defs_buf.write(co);
 
         try self.defs_buf.write("</linearGradient>");
+    }
+
+    pub fn background_image(self: *Self, src: []const u8) !void {
+        if (self.bg_added) {
+            return error.BgAlreadyAdded;
+        }
+        self.bg_added = true;
+
+        var buf: [256]u8 = undefined;
+        const s = try std.fmt.bufPrint(&buf, "  <image href=\"{s}\" x=\"0\" y=\"0\" height=\"630\" width=\"1200\" />", .{src});
+        try self.svg_buf.write(s);
     }
 
     pub fn end(self: *Self) !void {
@@ -67,6 +86,7 @@ pub const OpenGraph = struct {
 
     pub fn save_as(self: *Self, path: []const u8) !void {
         try self.end();
+        std.debug.print("{s}", .{self.svg_buf.string()});
         var err: ?*c.GError = null;
 
         const handle = c.rsvg_handle_new_from_data(self.svg_buf.string().ptr, self.svg_buf.string().len, &err);
