@@ -2,3 +2,4 @@ attempt two at a static site generator.
 
 requires
     - cairo
+    - pango
