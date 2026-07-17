@@ -10,8 +10,6 @@ const HEIGHT = 630;
 const BackgroundDirection = enum { LeftToRight, RightToLeft, TopToBottom, BottomToTop };
 
 const MaxRadius = 32;
-const KernelSize = MaxRadius * 2 + 1;
-
 var blur_buffer: [WIDTH * HEIGHT]u32 = undefined;
 
 pub const OpenGraph = struct {
@@ -72,8 +70,86 @@ pub const OpenGraph = struct {
         return self;
     }
 
-    pub fn gaussian(self: *const Self, radius: u8) *const Self {
+    pub fn blur(self: *const Self, radius: u8) *const Self {
         std.debug.assert(radius <= MaxRadius);
+
+        c.cairo_surface_flush(self.surface);
+        const stride: usize = @intCast(c.cairo_image_surface_get_stride(self.surface));
+        const ptr = c.cairo_image_surface_get_data(self.surface);
+        const pixels: [*]u32 = @ptrCast(@alignCast(ptr));
+
+        const window = @as(u32, radius) * 2 + 1;
+
+        var pass: u8 = 0;
+
+        while (pass < 3) : (pass += 1) {
+            for (0..HEIGHT) |y| {
+                const row: [*]const u32 =
+                    @ptrCast(@alignCast(@as([*]const u8, @ptrCast(pixels)) + y * stride));
+
+                for (0..WIDTH) |x| {
+                    var a: u32 = 0;
+                    var r: u32 = 0;
+                    var g: u32 = 0;
+                    var b: u32 = 0;
+
+                    var i: i32 = -@as(i32, radius);
+                    while (i <= radius) : (i += 1) {
+                        const xx: usize = @intCast(std.math.clamp(
+                            @as(i32, @intCast(x)) + i,
+                            0,
+                            WIDTH - 1,
+                        ));
+
+                        const p = row[xx];
+                        a += (p >> 24) & 0xff;
+                        r += (p >> 16) & 0xff;
+                        g += (p >> 8) & 0xff;
+                        b += p & 0xff;
+                    }
+
+                    blur_buffer[y * WIDTH + x] =
+                        ((a / window) << 24) |
+                        ((r / window) << 16) |
+                        ((g / window) << 8) |
+                        (b / window);
+                }
+            }
+        }
+        for (0..HEIGHT) |y| {
+            const row: [*]u32 =
+                @ptrCast(@alignCast(@as([*]u8, @ptrCast(pixels)) + y * stride));
+
+            for (0..WIDTH) |x| {
+                var a: u32 = 0;
+                var r: u32 = 0;
+                var g: u32 = 0;
+                var b: u32 = 0;
+
+                var i: i32 = -@as(i32, radius);
+                while (i <= radius) : (i += 1) {
+                    const yy: usize = @intCast(std.math.clamp(
+                        @as(i32, @intCast(y)) + i,
+                        0,
+                        HEIGHT - 1,
+                    ));
+
+                    const p = blur_buffer[yy * WIDTH + x];
+                    a += (p >> 24) & 0xff;
+                    r += (p >> 16) & 0xff;
+                    g += (p >> 8) & 0xff;
+                    b += p & 0xff;
+                }
+
+                row[x] =
+                    ((a / window) << 24) |
+                    ((r / window) << 16) |
+                    ((g / window) << 8) |
+                    (b / window);
+            }
+        }
+
+        c.cairo_surface_mark_dirty(self.surface);
         return self;
     }
 
