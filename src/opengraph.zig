@@ -14,7 +14,6 @@ var blur_buffer: [WIDTH * HEIGHT]u32 = undefined;
 
 pub const OpenGraph = struct {
     const Self = @This();
-    bg_added: bool = false,
 
     surface: *c.cairo_surface_t,
     cr: *c.cairo_t,
@@ -42,7 +41,34 @@ pub const OpenGraph = struct {
         c.cairo_surface_destroy(self.surface);
     }
 
-    pub fn background_image(self: *const Self, path: [:0]const u8) *const Self {
+    pub fn bg_linear_gradient(self: *const Self, color_to: [3]f64, color_from: [3]f64, dir: BackgroundDirection) *const Self {
+        const floatHeight = @as(f64, @floatFromInt(HEIGHT));
+        const floatWidth = @as(f64, @floatFromInt(WIDTH));
+        const pattern: *c.cairo_pattern_t = switch (dir) {
+            .BottomToTop => c.cairo_pattern_create_linear(0.0, floatHeight, 0.0, 0.0).?,
+            .LeftToRight => c.cairo_pattern_create_linear(0.0, 0.0, floatWidth, 0.0).?,
+            .RightToLeft => c.cairo_pattern_create_linear(floatWidth, 0.0, 0.0, 0.0).?,
+            .TopToBottom => c.cairo_pattern_create_linear(0.0, 0.0, 0.0, floatHeight).?,
+        };
+
+        defer c.cairo_pattern_destroy(pattern);
+
+        c.cairo_pattern_add_color_stop_rgba(pattern, 0.0, color_to[0], color_to[1], color_to[2], 1.0);
+        c.cairo_pattern_add_color_stop_rgba(pattern, 1.0, color_from[0], color_from[1], color_from[2], 1.0);
+        c.cairo_set_source(self.cr, pattern);
+        c.cairo_rectangle(self.cr, 0, 0, WIDTH, HEIGHT);
+        c.cairo_fill(self.cr);
+        return self;
+    }
+
+    pub fn overlay(self: *const Self, rgba: [4]f64) *const Self {
+        c.cairo_set_source_rgba(self.cr, rgba[0], rgba[1], rgba[2], rgba[3]);
+        c.cairo_rectangle(self.cr, 0, 0, WIDTH, HEIGHT);
+        c.cairo_fill(self.cr);
+        return self;
+    }
+
+    pub fn bg_image(self: *const Self, path: [:0]const u8) *const Self {
         const image = c.cairo_image_surface_create_from_png(path).?;
         defer c.cairo_surface_destroy(image);
         const original_width = c.cairo_image_surface_get_width(image);
@@ -60,13 +86,6 @@ pub const OpenGraph = struct {
 
         c.cairo_paint(self.cr);
 
-        return self;
-    }
-
-    pub fn overlay(self: *const Self, rgba: [4]f64) *const Self {
-        c.cairo_set_source_rgba(self.cr, rgba[0], rgba[1], rgba[2], rgba[3]);
-        c.cairo_rectangle(self.cr, 0, 0, WIDTH, HEIGHT);
-        c.cairo_fill(self.cr);
         return self;
     }
 
