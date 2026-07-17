@@ -1,12 +1,10 @@
 const std = @import("std");
 const OpenGraph = @import("opengraph.zig").OpenGraph;
 
-pub const c = @cImport({
-    @cInclude("cairo/cairo.h");
-});
-
 pub fn main() !void {
-    var o = OpenGraph.init();
+    const o = try OpenGraph
+        .init()
+        .background_image("biscuit.png")
+        .save("out.png");
     defer o.deinit();
-    try o.save("out.png");
 }
