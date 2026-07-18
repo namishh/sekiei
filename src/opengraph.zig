@@ -4,6 +4,7 @@ const c = @cImport({
     @cInclude("cairo/cairo.h");
     @cInclude("pango/pangocairo.h");
     @cInclude("glib-object.h");
+    @cInclude("fontconfig/fontconfig.h");
 });
 
 const WIDTH = 1200;
@@ -13,6 +14,7 @@ const BackgroundDirection = enum { LeftToRight, RightToLeft, TopToBottom, Bottom
 
 const MaxRadius = 32;
 var blur_buffer: [WIDTH * HEIGHT]u32 = undefined;
+var title_bottom: f64 = 0;
 
 pub fn hex_string_to_rgb(hex: []const u8) [4]f64 {
     const cleaned = if (hex[0] == '#') hex[1..] else hex;
@@ -43,15 +45,13 @@ pub const OpenGraph = struct {
             HEIGHT,
         );
 
+        _ = c.FcConfigAppFontAddFile(c.FcConfigGetCurrent(), "geist.ttf");
         const cr = c.cairo_create(surface).?;
 
         c.cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.0);
         c.cairo_paint(cr);
 
-        return .{
-            .surface = surface.?,
-            .cr = cr,
-        };
+        return .{ .surface = surface.?, .cr = cr };
     }
 
     pub fn deinit(self: *const Self) void {
@@ -141,6 +141,39 @@ pub const OpenGraph = struct {
         return self;
     }
 
+    pub fn pfp(self: *const Self, path: [:0]const u8) *const Self {
+        const image = c.cairo_image_surface_create_from_png(path).?;
+        defer c.cairo_surface_destroy(image);
+
+        const size: f64 = 80;
+        const x: f64 = WIDTH - 40 - size;
+        const y: f64 = HEIGHT - 40 - size;
+
+        const width: f64 = @floatFromInt(c.cairo_image_surface_get_width(image));
+        const height: f64 = @floatFromInt(c.cairo_image_surface_get_height(image));
+
+        c.cairo_save(self.cr);
+        defer c.cairo_restore(self.cr);
+
+        c.cairo_arc(
+            self.cr,
+            x + size / 2,
+            y + size / 2,
+            size / 2,
+            0,
+            2 * std.math.pi,
+        );
+        c.cairo_clip(self.cr);
+
+        c.cairo_translate(self.cr, x, y);
+        c.cairo_scale(self.cr, size / width, size / height);
+
+        c.cairo_set_source_surface(self.cr, image, 0, 0);
+        c.cairo_paint(self.cr);
+
+        return self;
+    }
+
     pub fn blur(self: *const Self, radius: u8) *const Self {
         std.debug.assert(radius <= MaxRadius);
 
@@ -224,17 +257,47 @@ pub const OpenGraph = struct {
         return self;
     }
 
-    pub fn title(self: *const Self, text: [:0]const u8) *const Self {
-        const layout = c.pango_cairo_create_layout(self.cr);
-        c.pango_layout_set_text(layout, text.ptr, -1);
+    fn drawText(self: *const Self, text: [:0]const u8, color: [:0]const u8, font: [:0]const u8, x: f64, y: f64) struct { width: c_int, height: c_int } {
+        const layout = c.pango_cairo_create_layout(self.cr).?;
+        defer c.g_object_unref(layout);
 
-        c.pango_layout_set_width(layout, 500 * 1024);
-        c.pango_layout_set_wrap(layout, 0);
+        const font_desc = c.pango_font_description_from_string(font.ptr).?;
+        defer c.pango_font_description_free(font_desc);
 
-        c.cairo_move_to(self.cr, 10, 20);
+        const rgba = hex_string_to_rgb(color);
+        c.cairo_set_source_rgba(self.cr, rgba[0], rgba[1], rgba[2], rgba[3]);
+
+        c.pango_layout_set_font_description(layout, font_desc);
+        c.pango_layout_set_text(layout, text.ptr, @intCast(text.len));
+        c.pango_layout_set_width(layout, (WIDTH - 80) * c.PANGO_SCALE);
+        c.pango_layout_set_wrap(layout, c.PANGO_WRAP_WORD_CHAR);
+
+        c.cairo_move_to(self.cr, x, y);
         c.pango_cairo_show_layout(self.cr, layout);
 
-        c.g_object_unref(layout);
+        var width: c_int = 0;
+        var height: c_int = 0;
+        c.pango_layout_get_pixel_size(layout, &width, &height);
+
+        return .{
+            .width = width,
+            .height = height,
+        };
+    }
+
+    pub fn title(self: *const Self, text: [:0]const u8, color: [:0]const u8) *const Self {
+        const size = self.drawText(text, color, "Geist Bold 48", 40, 80);
+        title_bottom = 80.0 + @as(f64, @floatFromInt(size.height));
+        return self;
+    }
+
+    pub fn subtitle(self: *const Self, text: [:0]const u8, color: [:0]const u8) *const Self {
+        _ = self.drawText(text, color, "Geist 24", 40, title_bottom + 10);
+        return self;
+    }
+
+    pub fn bottom(self: *const Self, text: [:0]const u8, color: [:0]const u8) *const Self {
+        _ = self.drawText(text, color, "Geist 18", 40, HEIGHT - 80);
         return self;
     }
 

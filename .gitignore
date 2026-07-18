@@ -9,3 +9,10 @@
 !src/*.zig
 
 !README
+
+!static
+!static/_priv
+!static/_priv/*
+
+!static/images
+!static/images/*

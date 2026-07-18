@@ -13,6 +13,7 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.linkSystemLibrary("pangocairo");
+    exe.linkSystemLibrary("fontconfig");
     exe.linkLibC();
 
     b.installArtifact(exe);
