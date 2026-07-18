@@ -20,7 +20,7 @@ pub fn main() !void {
         .grid(40.0, 0.5, "#323232ff")
         .title("this should be the new blog post that i will never release ", "#ffffffff")
         .subtitle("but well i will never release it", "#ffffffff")
-        .pfp("pfp.png")
+        .pfp("static/images/pfp.png")
         .save("simple.png");
     defer simple.deinit();
 }

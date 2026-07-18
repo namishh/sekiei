@@ -45,7 +45,7 @@ pub const OpenGraph = struct {
             HEIGHT,
         );
 
-        _ = c.FcConfigAppFontAddFile(c.FcConfigGetCurrent(), "geist.ttf");
+        _ = c.FcConfigAppFontAddFile(c.FcConfigGetCurrent(), "static/_priv/geist.ttf");
         const cr = c.cairo_create(surface).?;
 
         c.cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.0);
