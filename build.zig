@@ -3,6 +3,12 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const zmpl_dep = b.dependency("zmpl", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "sekiei",
         .root_module = b.createModule(.{
@@ -11,6 +17,8 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
+
+    exe.root_module.addImport("zmpl", zmpl_dep.module("zmpl"));
 
     exe.linkSystemLibrary("pangocairo");
     exe.linkSystemLibrary("fontconfig");

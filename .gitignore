@@ -16,3 +16,6 @@
 
 !static/images
 !static/images/*
+
+!templates
+!templates/*.html
