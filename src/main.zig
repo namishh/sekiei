@@ -32,7 +32,7 @@ pub fn main() !void {
 
     const x = try OpenGraph.init()
         .bg_image("bg2.png")
-        .overlay("#000000aa")
+        .dither(32)
         .save("outter.png");
     defer x.deinit();
 }

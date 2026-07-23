@@ -16,6 +16,13 @@ const MaxRadius = 32;
 var blur_buffer: [WIDTH * HEIGHT]u32 = undefined;
 var title_bottom: f64 = 0;
 
+const bayer4x4 = [4][4]u8{
+    .{ 0, 8, 2, 10 },
+    .{ 12, 4, 14, 6 },
+    .{ 3, 11, 1, 9 },
+    .{ 15, 7, 13, 5 },
+};
+
 pub fn hex_string_to_rgb(hex: []const u8) [4]f64 {
     const cleaned = if (hex[0] == '#') hex[1..] else hex;
 
@@ -232,11 +239,41 @@ pub const OpenGraph = struct {
                     g += (p >> 8) & 0xff;
                     b += p & 0xff;
                 }
-                row[x] =
-                    ((a / window) << 24) |
-                    ((r / window) << 16) |
-                    ((g / window) << 8) |
-                    (b / window);
+                row[x] = ((a / window) << 24) | ((r / window) << 16) | ((g / window) << 8) | (b / window);
+            }
+        }
+
+        c.cairo_surface_mark_dirty(self.surface);
+        return self;
+    }
+
+    pub fn dither(self: *const Self, strength: u8) *const Self {
+        c.cairo_surface_flush(self.surface);
+        const stride: usize = @intCast(c.cairo_image_surface_get_stride(self.surface));
+        const ptr = c.cairo_image_surface_get_data(self.surface);
+        const pixels: [*]u32 = @ptrCast(@alignCast(ptr));
+
+        const dot_size: usize = 3;
+
+        for (0..HEIGHT) |y| {
+            const row: [*]u32 = @ptrCast(@alignCast(@as([*]u8, @ptrCast(pixels)) + y * stride));
+
+            for (0..WIDTH) |x| {
+                const p = row[x];
+                const a = (p >> 24) & 0xff;
+                var r: i32 = @intCast((p >> 16) & 0xff);
+                var g: i32 = @intCast((p >> 8) & 0xff);
+                var b: i32 = @intCast(p & 0xff);
+
+                const threshold = bayer4x4[(y / dot_size) % 4][(x / dot_size) % 4];
+
+                const offset: i32 = @divTrunc((@as(i32, threshold) - 7) * @as(i32, strength), 4);
+
+                r = std.math.clamp(r + offset, 0, 255);
+                g = std.math.clamp(g + offset, 0, 255);
+                b = std.math.clamp(b + offset, 0, 255);
+
+                row[x] = (a << 24) | (@as(u32, @intCast(r)) << 16) | (@as(u32, @intCast(g)) << 8) | @as(u32, @intCast(b));
             }
         }
 
